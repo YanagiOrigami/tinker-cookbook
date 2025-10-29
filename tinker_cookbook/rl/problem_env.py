@@ -17,6 +17,12 @@ from tinker_cookbook.rl.types import (
 )
 from tinker_cookbook.utils import logtree
 
+import asyncio, inspect
+async def maybe_await(x):
+    if inspect.iscoroutine(x) or asyncio.iscoroutine(x):
+        return await x
+    return x
+
 logger = logging.getLogger(__name__)
 
 
@@ -61,7 +67,7 @@ class ProblemEnv(Env):
     async def step(self, action: Action) -> StepResult:
         message, parse_success = self.renderer.parse_response(action)
         correct_format = float(parse_success) and float(self.check_format(message["content"]))
-        correct_answer = float(self.check_answer(message["content"]))
+        correct_answer = float(await maybe_await(self.check_answer(message["content"])))
         total_reward = self.format_coef * (correct_format - 1) + correct_answer
 
         # Log the attempt
