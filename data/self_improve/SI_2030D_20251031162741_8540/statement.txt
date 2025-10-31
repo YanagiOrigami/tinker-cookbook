@@ -1,0 +1,110 @@
+**Dynamic Sortability with Range Flips**
+
+You are given a permutation `p` of length `n` (all numbers from `1` to `n` appear exactly once) and a string `s` of length `n` consisting of characters **L** and **R**.
+For every index `i` (`1 ≤ i ≤ n`):
+
+* if `s[i] = R` you may swap the elements `p[i]` and `p[i+1]` (the operation is allowed only when `i < n`);
+* if `s[i] = L` you may swap the elements `p[i]` and `p[i‑1]` (the operation is allowed only when `i > 1`).
+
+All swaps are **unlimited** – you may apply any allowed operation any number of times and in any order.
+
+Two indices `i` and `i+1` are said to be **connected** if at least one of the two swaps above can be performed, i.e.  
+`connected(i) ⇔ (s[i] = R)  ∨  (s[i+1] = L)`.
+
+Because swaps are only between neighbours, the connected pairs form a collection of disjoint contiguous segments of the array.  
+Inside each segment we can reorder the elements arbitrarily, while elements from different segments can never change their relative order.
+
+--------------------------------------------------------------------
+
+You have to answer `q` queries.  
+Each query gives two integers `l , r` (`1 ≤ l ≤ r ≤ n`).  
+All characters `s[l] , s[l+1] , … , s[r]` are **toggled** (`L` becomes `R` and `R` becomes `L`).  
+The changes are permanent.
+
+After each query you have to decide whether it is possible to sort the permutation `p` into the increasing order `1,2,…,n` using the allowed swaps (with the current string `s`).  
+The permutation `p` is **not** changed between queries.
+
+--------------------------------------------------------------------
+
+**Input**
+
+```
+t                                 – number of test cases (1 ≤ t ≤ 10⁴)
+For each test case:
+n q                               (3 ≤ n ≤ 2·10⁵ , 1 ≤ q ≤ 2·10⁵)
+p₁ p₂ … pₙ                       – permutation
+s₁ s₂ … sₙ                       – string of length n consisting of ‘L’ and ‘R’
+q lines, each line: l r           – range to toggle (1 ≤ l ≤ r ≤ n)
+```
+
+It is guaranteed that the sum of `n` over all test cases does not exceed `2·10⁵` and the sum of `q` over all test cases does not exceed `2·10⁵`.
+
+--------------------------------------------------------------------
+
+**Output**
+
+For each query output a line containing `"YES"` if the permutation can be sorted after this query, otherwise output `"NO"`.
+
+--------------------------------------------------------------------
+
+**Sample**
+
+```
+Input
+1
+6 5
+2 1 3 5 4 6
+RLRRLL
+2 3
+1 6
+4 5
+3 3
+5 5
+
+Output
+YES
+NO
+YES
+YES
+YES
+```
+
+**Explanation of the sample**
+
+Initially `s = R L R R L L`.  
+The connected pairs are `{(1,2)}` (because `s[2]=L`), `{(3,4)}` (because `s[3]=R`), `{(4,5)}` (because `s[5]=L`).  
+Thus the segments are `[1,2] , [3,5] , [6,6]`.  
+Inside each segment the numbers `{2,1}`, `{3,5,4}` and `{6}` can be reordered arbitrarily, therefore the whole permutation can be sorted – answer `"YES"`.
+
+After the first query we toggle positions `2` and `3`, obtaining `s = R R L R L L`.  
+Segments become `[1,3] , [4,5] , [6,6]`.  
+All numbers `1…6` still fit into their segments, so the answer is `"YES"`.
+
+The subsequent queries change the segmentation; the printed answers correspond to whether each new segmentation still allows a full sort.
+
+--------------------------------------------------------------------
+
+**Constraints**
+
+* `1 ≤ t ≤ 10⁴`
+* `3 ≤ n ≤ 2·10⁵`
+* `1 ≤ q ≤ 2·10⁵`
+* Sum of `n` over all test cases ≤ `2·10⁵`
+* Sum of `q` over all test cases ≤ `2·10⁵`
+
+--------------------------------------------------------------------
+
+**Problem Note**
+
+For a fixed string `s` let `cut[i] (1 ≤ i < n)` be `true` iff `s[i] = L` **and** `s[i+1] = R`.  
+Exactly at positions where `cut[i]` is `true` the array is split into different segments.  
+Define `prefMax[i] = max(p[1], … , p[i])`.  
+A necessary and sufficient condition for sortability is  
+
+```
+for every i with cut[i] = true   prefMax[i] ≤ i
+```
+
+The task is to maintain this condition while `cut` changes caused by range toggles of `s`.  
+
+--------------------------------------------------------------------

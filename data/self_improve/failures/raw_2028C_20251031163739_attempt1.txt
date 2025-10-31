@@ -1,0 +1,8 @@
+<|channel|>analysis<|message|>We need to output exactly two sections: problem statement tags and solution tags, with C++ code block inside. No extra text. Must design a new problem by modifying at least one condition. Should be more difficult, different solution.
+
+We must ensure output format: exactly two sections, nothing else.
+
+Section 1: <begin of problem statement for the new problem> ... <end of problem statement for the new problem>
+
+Section 2: <begin of accepted solution for the new problem> ```cpp ... ``` <end of accepted solution for the new problem>
+

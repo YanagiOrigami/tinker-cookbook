@@ -1,0 +1,86 @@
+**Problem Statement**
+
+You are given a sequence of **n** records, numbered from 1 to **n**.  
+Initially two attributes – **Strength** and **Intelligence** – are both equal to 0.
+
+*   Record `0` – you obtain one *experience point*.  
+    The point can be stored in a common pool and may be spent later to increase **Strength** or **Intelligence** by 1.  
+    Any stored point can be spent at any moment **before** the next record is processed.
+
+*   Record `x > 0` – an **Intelligence** check with difficulty `x`.  
+    The check is passed if at the moment of processing the record **Intelligence** ≥ `x`.
+
+*   Record `x < 0` – a **Strength** check with difficulty `|x|`.  
+    The check is passed if at the moment of processing the record **Strength** ≥ `|x|`.
+
+The total number of records equal to `0` is exactly **m** ( `1 ≤ m ≤ 5000` ).  
+All other records are checks.  
+
+You may spend points from the pool at any moment, possibly several points at once, but never more than the number of points you have already obtained.
+
+Your task is to maximise the number of checks that are passed.
+
+--------------------------------------------------------------------
+
+### Input
+The first line contains two integers `n` and `m` (`1 ≤ m ≤ 5000`, `m < n ≤ 2·10⁵`).  
+
+The second line contains `n` integers `r₁, r₂, …, rₙ` (`-m ≤ rᵢ ≤ m`).  
+Exactly `m` of them are equal to `0`.
+
+### Output
+Print a single integer – the maximal possible number of passed checks.
+
+--------------------------------------------------------------------
+
+### Samples
+
+#### Input
+```
+10 5
+0 1 0 2 0 -3 0 -4 0 -5
+```
+#### Output
+```
+3
+```
+
+#### Input
+```
+3 1
+1 -1 0
+```
+#### Output
+```
+0
+```
+
+#### Input
+```
+9 3
+0 0 1 0 2 -3 -2 -2 1
+```
+#### Output
+```
+4
+```
+
+--------------------------------------------------------------------
+
+### Explanation of Sample 1
+All five points are stored.  
+Spend all of them on **Strength** before the checks → pass the three strength checks (`-3, -4, -5`) and fail the two intelligence checks.
+
+--------------------------------------------------------------------
+
+### Constraints
+* `1 ≤ m ≤ 5000`
+* `m < n ≤ 2·10⁵`
+* `-m ≤ rᵢ ≤ m`
+* exactly `m` zeros in the sequence
+
+--------------------------------------------------------------------
+
+### Note
+Because points can be stored and spent later, the order in which you spend them matters.  
+A solution that decides the allocation of each point at the moment it appears is **not** sufficient.

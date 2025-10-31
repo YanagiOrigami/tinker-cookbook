@@ -1,0 +1,3 @@
+<|channel|>analysis<|message|>We need to decide appropriate checker. The problem requires comparing answers: they are integers per query. For each test case, we have many queries, and we need to output answers for each query as integers, each on its own line. The checker should verify that the participant's output matches the jury's output exactly (line by line). There's no tolerance, just integers. So a standard integer sequence comparator suffices, i.e., ncmp.cpp (compares sequences of integers, ignoring trailing whitespace). That matches the output format: a sequence of integers, each possibly separated by whitespace and lines. So we can use ncmp.cpp. No custom logic needed.
+
+Thus answer: ncmp.cpp.<|end|><|start|>assistant<|channel|>final<|message|>ncmp.cpp

@@ -1,0 +1,10 @@
+<|channel|>analysis<|message|>The task: We need to output two sections: problem statement and accepted solution in C++. Must modify at least one condition of original problem to make more difficult, requiring different solution approach. Provide full problem statement, constraints, sample cases, solution code compiled with C++17. Also provide explanation and proof after the sections (the last paragraph). Wait, but the instruction: "Response Format:
+
+<begin of problem statement for the new problem>
+// Problem statement for the new problem
+<end of problem statement for the new problem>
+
+<begin of accepted solution for the new problem>
+// Accepted solution for the new problem
+<end of accepted solution for the new problem>
+

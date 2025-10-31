@@ -59,7 +59,7 @@ class CLIConfig:
     behavior_if_log_dir_exists: cli_utils.LogdirBehavior = "ask"
 
     max_steps_off_policy: int | None = None
-    loss_fn: Literal["importance_sampling", "ppo"] = "importance_sampling" # "ppo"
+    loss_fn: Literal["importance_sampling", "ppo"] = "ppo" # "ppo"
 
 
 def get_dataset_builder(
@@ -71,7 +71,7 @@ def get_dataset_builder(
     seed: int = 0,
     epochs: int = 1,
 ) -> RLDatasetBuilder:
-    if env in ["coding", "coding_local"]:
+    if env in ["coding", "coding_local", "coding_generated"]:
         return coding_env.get_coding_dataset_builder(
             dataset_name=env,
             batch_size=batch_size,

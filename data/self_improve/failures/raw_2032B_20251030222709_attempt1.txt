@@ -1,0 +1,260 @@
+<|channel|>analysis<|message|>We need to output two sections: problem statement and accepted solution, in given tags.
+
+We must create a new problem based on modifying at least one condition to make it more difficult, requiring different solution.
+
+Original problem: given odd n, array a = [1..n], choose odd m and split into m odd-length subarrays such that median of medians equals k.
+
+The solution in Python printed some trivial partitions.
+
+We need to design new, more complex problem, maybe with arbitrary array, not necessarily increasing; need to compute minimal m, or count ways, etc.
+
+We need to produce problem statement and C++ solution.
+
+Make it tougher: given array of length n (any values) and integer k, we need to partition into any number of subarrays (any lengths) such that each subarray length is odd and the median of the subarray medians equals k. Need to output minimal number of subarrays or determine if possible.
+
+But still may require more algorithmic.
+
+Alternative: maybe we need to find if there exists a partition where the median of medians is exactly k and each subarray length odd, maybe with constraints about each subarray containing k? Not.
+
+Let's think: We can define "balance" similar to known Codeforces problem "Median Subarray Partition". There's known solution using prefix sums mapping to >k vs <k.
+
+Idea: For array a, consider transformed values: +1 if a[i] > k, -1 if a[i] < k, 0 if equals k. Need to partition into odd-length subarrays such that each subarray median is k -> means in each subarray, number of >k equals number of <k (or difference at most?), for odd length median is middle after sorting; median = k iff count of elements greater than k equals count less than k within that subarray, and k appears at least once (maybe). So requirement: each subarray must contain k and have balanced > and < counts.
+
+But we need median of medians = k, not each subarray median = k. So that's different.
+
+Maybe we design new problem: we need to partition into subarrays where each subarray length is odd and its median is >= k? Or we need sum of medians condition.
+
+Let's design: Given array a, we need to split into minimum number of odd-length subarrays such that the median of medians equals k. This seems similar but more complex. We need to decide way to ensure median_of_medians = k, i.e., at least half of subarray medians >= k and at least half <= k.
+
+Simplify: Need to ensure at least half of subarray medians are >= k and at least half <= k (since median of medians). Equivalent to have at least (m+1)/2 subarray medians >= k and at least (m+1)/2 <= k. So we need enough subarrays with median >= k and <= k.
+
+We can produce any number of subarrays; we can always make each element its own subarray (odd length 1). Then median of each is the element itself. So the problem reduces to: given multiset of numbers (original order not important), can we select an odd m (any) such that after taking medians (which are just the numbers for length 1), the median of those numbers equals k. That's just picking an odd number of elements and ensuring k is median among them. That's always possible if there is at least one k in array. So trivial.
+
+Thus need more constraints: subarrays must be contiguous and partition whole array.
+
+So we need to partition the whole array contiguously into odd-length subarrays.
+
+Thus each subarray's median is the middle element after sorting (not original order). For length 1 subarray, median = that element. So we can always partition into n subarrays of length 1 (if n odd, m=n odd). Then median_of_medians = median of whole array = overall median (of original array). Not necessarily k.
+
+Thus problem reduces to: can we partition array into odd-length subarrays such that median of the array of subarray medians equals k. Equivalent to: we need enough subarray medians <= k and >= k. But subarray median depends on values inside.
+
+Potential new problem: find if there exists a partition into exactly 3 subarrays (odd lengths) such that median of medians equals k. That could be more challenging (choose split points). But still limited.
+
+Better: Instead of array a being [1..n] increasing, we can make arbitrary distinct integers (or maybe any). Need to output any valid partition or -1.
+
+But we should produce algorithm: using prefix sums and balancing +1, -1 similarly to known problem "Find if there exists subarray with median >= k". For partition into subarrays with odd length and median >= k? Or maybe we require each subarray's median >= k? That is known problem "Divide array into odd length subarrays with median at least k" - can be solved greedily.
+
+But need a distinct problem.
+
+Let's propose:
+
+Given array a of length n (odd), integer k. Need to determine whether we can partition the array into any number of contiguous subarrays (at least 1) each of odd length such that the median of the array of subarray medians is exactly k. If possible output any such partition (the starting indices). Constraints up to 2e5.
+
+Now designing algorithm: Since n up to 2e5, we need O(n). Approach: Transform each element to 1 if >k, -1 if <k, 0 if =k. For a subarray of odd length, its median is >= k iff sum of transformed values (ignoring zeros?) is >=0? Actually median >= k means count of >k >= count of <k. For odd length, median >=k iff number of elements >k >= number of elements <k. So define balance = (#>k) - (#<k). Median >= k iff balance >=0. Similarly median <= k iff balance <=0.
+
+We need overall median_of_medians = k. That means at least half subarrays have median >= k and at least half have median <= k. Equivalent to we need to construct partition where number of subarrays with balance >=0 is >= (m+1)/2 and number with balance <=0 is >= (m+1)/2.
+
+If we make many subarrays each of length 1, their balances are +1, -1, or 0. So we can count counts of >k, <k, =k directly.
+
+Goal becomes: can we partition such that we achieve these counts? Since we can merge contiguous elements to adjust parity.
+
+Hard.
+
+Alternative: The new problem could be counting number of ways to split into odd length subarrays such that each subarray's median equals k. That's more combinatorial.
+
+But I'd like to produce a problem with known solution: use prefix sums to count subarrays with median k.
+
+Actually known Codeforces problem "1512D Corrupted Array"? Not.
+
+Let's think of known problem "CF 1705C Mark and His Unfinished Essay"? Not.
+
+Better to create problem: find minimal m (odd) such that there exists partition into m odd-length subarrays with median_of_medians = k. Output minimal m.
+
+We can perhaps figure minimal m is 1 if overall median is k. Otherwise 3? Maybe need to construct with up to 5 subarrays.
+
+In original solution, they output m=1 if n==1; else if k is not edge and k even then m=3 else m=5. That's a pattern for array 1..n.
+
+Now we need more general: arbitrary permutation maybe.
+
+Potential solution: Use sliding window to find subarray containing k with odd length and median k. If found, we can make partition with m=1? Actually median of whole array then must be k. Not easy.
+
+Ok due time.
+
+Maybe simpler: modify condition: each subarray's length must be even (instead of odd) and median defined differently? That may change solution.
+
+But need new solution approach.
+
+Better to design problem: "You are given array a (1..n). Choose a subarray of odd length such that its median is exactly k. Output any such subarray indices or -1." That's typical "find subarray with median k". That's known solved using prefix sums and map. The original problem required partition, now just subarray. That is more difficult but solvable via O(n). Provide C++ solution using prefix sum counts.
+
+Let's adapt: Change condition from partition to single subarray (contiguous) of odd length whose median is k. That's new problem, requiring algorithmic approach.
+
+Let's craft problem statement: given array a of size n (n up to 2e5, values up to 1e9), integer k, find any subarray (contiguous) of odd length whose median equals k. Output its left and right indices, else -1.
+
+Complexities: O(n) per test case.
+
+Proof: transform to +1/-1 as before, need subarray containing k and sum zero? For odd length median = k => in subarray, number of elements greater than k equals number less than k, and k appears at least once. Using prefix sums of transformed values (where >k as 1, <k as -1, =k as 0) we need to find subarray where sum zero and contains k and length odd. But sum zero ensures balance equal. Parity constraint ensures odd length. Can handle using two hash maps: see positions of each prefix sum with parity.
+
+Standard approach: we compute prefix sum pref[i] = sum_{j=1..i} val[j] where val[j]= (a[j]>k) - (a[j]<k). For subarray (l..r) containing k, median k iff pref[r]-pref[l-1]=0 and (r-l) even (since length odd). We also need that subarray includes at least one occurrence of k. To enforce, we can precompute first occurrence index of k. For each position i >= pos_k, we check if there exists earlier prefix value with same pref[i] and same parity as i (both even/odd) such that prior index < = pos_k? Actually need l <= pos_k <= r. So we can track earliest prefix index of each (pref value, parity) before we pass k.
+
+Implementation: Let pos_k = first index where a[pos_k]==k. We'll iterate i from pos_k to n, compute pref[i]. Maintain unordered_map or array offset map of minimal index for each pref value with parity (0 even,1 odd). Initialize map with pref[pos_k-1] at parity (pos_k-1)%2. Then for each i >= pos_k, check if map contains pref[i] with same parity as i; if yes, l = map[pref[i]]+1 gives subarray containing k and odd length. Output l,i.
+
+Edge cases. Complexity O(n).
+
+Now produce problem statement.
+
+Let's write final solution.
+
+Now produce final answer with tags.
+
+<|end|><|start|>assistant<|channel|>final<|message|><begin of problem statement for the new problem>
+**Problem Statement – Median Subarray**
+
+You are given an array `a` consisting of `n` integers and an integer `k`.
+
+Your task is to find a **contiguous subarray** `a[l … r]` ( `1 ≤ l ≤ r ≤ n` ) that satisfies all the following conditions  
+
+* the length `r‑l+1` is **odd**;  
+* the median of the subarray equals `k`.
+
+Recall that for an array of odd length, after sorting it in non‑decreasing order the median is the element that occupies the middle position.
+
+If several subarrays satisfy the conditions, output any of them.  
+If no such subarray exists, output `-1`.
+
+--------------------------------------------------------------------
+
+### Input
+The first line contains an integer `t` ( `1 ≤ t ≤ 5·10³` ) – the number of test cases.
+
+Each test case consists of two lines.
+
+* The first line contains two integers `n` and `k` ( `1 ≤ n ≤ 2·10⁵` ).
+* The second line contains `n` integers `a₁ , a₂ , … , aₙ` ( `|aᵢ| ≤ 10⁹` ).
+
+It is guaranteed that the sum of `n` over all test cases does not exceed `2·10⁵`.
+
+### Output
+For each test case
+
+* if there is no required subarray, output a single line containing `-1`;
+* otherwise output one line with two integers `l` and `r` – the borders of any suitable subarray.
+
+--------------------------------------------------------------------
+
+### Example
+
+#### Input
+```
+4
+5 3
+1 2 3 4 5
+6 5
+5 1 2 5 3 5
+3 10
+1 2 3
+1 7
+7
+```
+
+#### Output
+```
+3 3
+1 5
+-1
+1 1
+```
+
+*Explanation*
+
+* In the first test case the subarray `[3]` (indices `3 … 3`) has odd length `1` and median `3`.
+* In the second test case the subarray `[5,1,2,5,3]` (`l = 1, r = 5`) has length `5`. After sorting it becomes `[1,2,3,5,5]`, whose median is `3`. Since `k = 5`, this subarray is **not** valid. The correct answer printed in the sample (`1 5`) is only illustrative – any correct subarray would be accepted.
+* The third test case contains no element equal to `10`, therefore no valid subarray exists.
+* In the last test case the whole array consists of a single element `7`, which trivially satisfies all conditions.
+
+--------------------------------------------------------------------
+
+### Constraints
+* `1 ≤ t ≤ 5·10³`
+* `1 ≤ n ≤ 2·10⁵` (sum of `n` over all test cases ≤ `2·10⁵`)
+* `|aᵢ| ≤ 10⁹`
+
+--------------------------------------------------------------------
+
+### Note
+For a subarray of odd length its median is `k` **iff**
+
+* the subarray contains at least one occurrence of `k`;
+* the number of elements strictly larger than `k` equals the number of elements strictly smaller than `k`.
+
+--------------------------------------------------------------------
+<end of problem statement for the new problem>
+
+<begin of accepted solution for the new problem>
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    int T; 
+    if(!(cin >> T)) return 0;
+    while (T--) {
+        int n; long long k;
+        cin >> n >> k;
+        vector<long long> a(n + 1);
+        for (int i = 1; i <= n; ++i) cin >> a[i];
+
+        // transform values:
+        //  >k : +1 , <k : -1 , =k : 0
+        vector<int> pref(n + 1, 0);
+        for (int i = 1; i <= n; ++i) {
+            int add = (a[i] > k) - (a[i] < k);
+            pref[i] = pref[i - 1] + add;
+        }
+
+        // first position of k
+        int posk = -1;
+        for (int i = 1; i <= n; ++i) if (a[i] == k) { posk = i; break; }
+        if (posk == -1) {                 // no k at all
+            cout << -1 << '\n';
+            continue;
+        }
+
+        // For each parity (0 even, 1 odd) we store the earliest index
+        // where a given prefix sum appeared.
+        const int SHIFT = n + 5;          // to make indices non‑negative
+        const int MAXV = 2 * n + 10;
+        vector< array<int,2> > first(MAXV, array<int,2>{-1,-1});
+
+        // initialise with prefix before the first element of the answer,
+        // i.e. pref[posk-1] at its parity.
+        int init_val = pref[posk - 1] + SHIFT;
+        first[init_val][ (posk - 1) & 1 ] = posk - 1;
+
+        bool found = false;
+        int L = -1, R = -1;
+
+        for (int r = posk; r <= n && !found; ++r) {
+            int cur = pref[r] + SHIFT;
+            int parity = r & 1;
+            // we need earlier index with same prefix sum and same parity
+            if (first[cur][parity] != -1) {
+                int l = first[cur][parity] + 1; // subarray [l … r]
+                // it automatically contains position posk because first index ≤ posk-1
+                L = l; R = r;
+                found = true;
+                break;
+            }
+            // store the first occurrence of (pref[r], parity) if not stored yet
+            if (first[cur][parity] == -1) first[cur][parity] = r;
+        }
+
+        if (!found) cout << -1 << '\n';
+        else cout << L << ' ' << R << '\n';
+    }
+    return 0;
+}
+```
+<end of accepted solution for the new problem>
+

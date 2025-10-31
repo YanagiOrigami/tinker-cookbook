@@ -1,0 +1,11 @@
+<|channel|>analysis<|message|>The user wants: "You are a strict formatter. Output EXACTLY two sections and nothing else.
+1) The new problem statement strictly between the tags:
+<begin of problem statement for the new problem>
+...
+<end of problem statement for the new problem>
+2) The accepted C++ solution strictly between the tags:
+<begin of accepted solution for the new problem>
+```cpp
+<full C++17 program with main()>
+```
+<end of accepted solution for the new problem>

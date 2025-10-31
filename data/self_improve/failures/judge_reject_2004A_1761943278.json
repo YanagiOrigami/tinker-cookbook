@@ -1,0 +1,41 @@
+{
+  "raw": {
+    "id": "gen-1761943278-WirUVBxamc8YZqyVARcw",
+    "provider": "Google",
+    "model": "google/gemini-2.5-flash",
+    "object": "chat.completion",
+    "created": 1761943278,
+    "choices": [
+      {
+        "logprobs": null,
+        "finish_reason": "stop",
+        "native_finish_reason": "STOP",
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "{\n  \"is_problem\": false,\n  \"reasons\": [\n    \"Content is ellipses, indicating a placeholder or incomplete statement.\"\n  ]\n}",
+          "refusal": null,
+          "reasoning": null
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 84,
+      "completion_tokens": 36,
+      "total_tokens": 120,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0
+      }
+    }
+  },
+  "parsed": {
+    "is_problem": false,
+    "reasons": [
+      "Content is ellipses, indicating a placeholder or incomplete statement."
+    ]
+  }
+}

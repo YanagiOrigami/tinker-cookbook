@@ -1,6 +1,7 @@
 import math
 import re
 from functools import partial
+import os
 from typing import Literal, Sequence, cast
 
 import chz
@@ -86,6 +87,11 @@ def _load_from_local_jsonl(path: str, split: str) -> Dataset:
     dataset = load_dataset("json", data_files=files_to_load)
     return cast(Dataset, dataset[split])
 
+def _load_from_local_parquet(path: str, split: str) -> Dataset:
+    files_to_load = {split: path}
+    dataset = load_dataset("parquet", data_files=files_to_load)
+    return cast(Dataset, dataset[split])
+
 class CodingDataset(RLDataset):
     def __init__(
         self,
@@ -130,6 +136,7 @@ class CodingDataset(RLDataset):
                 CodingEnv, x["problem_statement"], id, self.renderer, convo_prefix=self.convo_prefix
             ),
             num_envs=group_size,
+            dataset_name=f"problem:{id}",
         )
     
 class LocalCodingDataset(CodingDataset):
@@ -143,15 +150,66 @@ class LocalCodingDataset(CodingDataset):
         seed: int = 0,
         epochs: int = 1,
     ):
+        local_parquet = "/Users/zeyushen/Desktop/tinker-cookbook/LiveCodeBench-Pro/data/quater_2024_10_12-00000-of-00001.parquet"
         if split == "train":
-            self.ds = _load_from_local_jsonl("/mnt/e/Research/RL_everything/data/output/train.jsonl", "train").shuffle(seed=seed)
+            self.ds = _load_from_local_parquet(local_parquet, "train").shuffle(seed=seed)
         elif split == "test":
-            self.ds = _load_from_local_jsonl("/mnt/e/Research/RL_everything/data/output/eval.jsonl", "test")
+            self.ds = _load_from_local_parquet(local_parquet, "test")
         self.batch_size = batch_size
         self.group_size = group_size if split == "train" else 1
         self.renderer = renderer
         self.convo_prefix = convo_prefix
         self.epochs = epochs
+
+
+class GeneratedCodingDataset(RLDataset):
+    def __init__(
+        self,
+        batch_size: int,
+        group_size: int,
+        renderer: renderers.Renderer,
+        convo_prefix: list[renderers.Message] | None,
+        split: Literal["train", "test"] = "train",
+        seed: int = 0,
+        epochs: int = 1,
+    ):
+        # Load generated problems jsonl written by self-improvement pipeline
+        data_path = os.environ.get(
+            "SELF_IMPROVE_EPOCH_FILE",
+            "/Users/zeyushen/Desktop/tinker-cookbook/data/self_improve/dataset.jsonl",
+        )
+        self.ds = _load_from_local_jsonl(data_path, split)
+        self.batch_size = batch_size
+        self.group_size = group_size if split == "train" else 1
+        self.renderer = renderer
+        self.convo_prefix = convo_prefix
+        self.epochs = epochs
+
+    def get_batch(self, index: int) -> Sequence[EnvGroupBuilder]:
+        index = index % (( len(self.ds) + self.batch_size - 1) // self.batch_size)
+        batch_start = index * self.batch_size
+        batch_end = min((index + 1) * self.batch_size, len(self.ds))
+        assert batch_start < batch_end, "Incorrect batch size"
+        return [
+            builder
+            for row in self.ds.select(range(batch_start, batch_end))
+            if (builder := self._make_env_group_builder(row, self.group_size)) is not None  # pyright: ignore[reportArgumentType]
+        ]
+
+    def __len__(self) -> int:
+        return math.ceil(len(self.ds) / self.batch_size) * self.epochs
+
+    def _make_env_group_builder(
+        self, x: dict[str, str], group_size: int
+    ) -> ProblemGroupBuilder | None:
+        id = x["problem_id"]
+        return ProblemGroupBuilder(
+            env_thunk=partial(
+                CodingEnv, x["problem_statement"], id, self.renderer, convo_prefix=self.convo_prefix
+            ),
+            num_envs=group_size,
+            dataset_name=f"problem:{id}",
+        )
 
 @chz.chz
 class CodingDatasetBuilder(RLDatasetBuilder):
@@ -216,9 +274,42 @@ class LocalCodingDatasetBuilder(RLDatasetBuilder):
         return (datasets[0], datasets[1])
 
 
+@chz.chz
+class GeneratedCodingDatasetBuilder(RLDatasetBuilder):
+    batch_size: int
+    model_name_for_tokenizer: str
+    renderer_name: str
+    group_size: int
+    convo_prefix: list[renderers.Message] | None | Literal["standard"] = "standard"
+    seed: int = 0
+    epochs: int = 1
+
+    async def __call__(self) -> tuple[GeneratedCodingDataset, GeneratedCodingDataset]:
+        if self.convo_prefix == "standard":
+            convo_prefix = CodingEnv.standard_fewshot_prefix()
+        else:
+            convo_prefix = self.convo_prefix
+        tokenizer = get_tokenizer(self.model_name_for_tokenizer)
+        renderer = renderers.get_renderer(self.renderer_name, tokenizer=tokenizer)
+        datasets = [
+            GeneratedCodingDataset(
+                batch_size=self.batch_size,
+                group_size=self.group_size,
+                renderer=renderer,
+                convo_prefix=convo_prefix,
+                split=split,
+                seed=self.seed,
+                epochs=self.epochs if split == "train" else 1,
+            )
+            for split in ("train", "test")
+        ]
+        return (datasets[0], datasets[1])
+
+
 DATASET_BUILDER_MAP = {
     "coding": CodingDatasetBuilder,
     "coding_local": LocalCodingDatasetBuilder,
+    "coding_generated": GeneratedCodingDatasetBuilder,
 }
 
 def get_coding_dataset_builder(

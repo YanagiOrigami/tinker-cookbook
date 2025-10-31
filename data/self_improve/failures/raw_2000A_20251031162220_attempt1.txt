@@ -1,0 +1,1 @@
+<|channel|>analysis<|message|>We need to output exactly two sections: problem statement and accepted solution. No extra text. Must include tags exactly: <begin of problem statement for the new problem> ... <end of problem statement for the new problem> and <begin of accepted solution for the new problem> ... <end of accepted solution for the new problem>.

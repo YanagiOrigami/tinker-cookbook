@@ -1,0 +1,100 @@
+**Problem Statement – Alternating String Reconstruction**
+
+For a string `s` consisting of lowercase Latin letters we call it **alternating**
+if
+
+* its length is even (the empty string is also considered alternating);
+* all characters on even positions (`0`‑based) are equal to the same letter `x`;
+* all characters on odd positions are equal to the same letter `y`
+  (the letters `x` and `y` may be equal).
+
+You are allowed to apply the following two operations any number of times
+(in any order).
+
+1. **Delete** one character of the string (cost = 1).
+2. **Replace** a character by any other lowercase letter (cost = 1).
+
+For each test case you are given a string `s`.  
+Find the minimum total cost (number of performed operations) needed to
+transform `s` into an alternating string.
+
+--------------------------------------------------------------------
+
+### Input
+
+The first line contains a single integer `t` (`1 ≤ t ≤ 10⁴`) – the number of
+test cases.
+
+Each test case consists of two lines:
+
+* an integer `n` (`1 ≤ n ≤ 2·10⁵`) – the length of `s`;
+* the string `s` of length `n`, consisting of lowercase Latin letters.
+
+It is guaranteed that the sum of `n` over all test cases does not exceed
+`2·10⁵`.
+
+--------------------------------------------------------------------
+
+### Output
+
+For each test case output a single integer – the minimum possible total
+cost to obtain an alternating string.
+
+--------------------------------------------------------------------
+
+### Sample
+
+#### Input
+```
+5
+1
+a
+2
+ab
+3
+aab
+5
+ababa
+6
+acdada
+```
+
+#### Output
+```
+1
+0
+1
+1
+2
+```
+
+**Explanation**
+
+* `a` → delete it (cost = 1), the empty string is alternating.
+* `ab` is already alternating (`x = a`, `y = b`), no operation is needed.
+* `aab` → delete the first `a`, obtain `ab` (cost = 1).
+* `ababa` → delete the first `a`, obtain `baba` (cost = 1).
+* `acdada` → keep the subsequence `dadad` (positions 2,3,4,5,6), replace the
+  first kept `d` by `a` (cost = 1) and delete the last `a` (cost = 1).  
+  Total cost = 2, which is optimal.
+
+--------------------------------------------------------------------
+
+### Constraints
+
+* `1 ≤ t ≤ 10⁴`
+* `1 ≤ n ≤ 2·10⁵`
+* Σ `n` ≤ `2·10⁵`
+
+--------------------------------------------------------------------
+
+### Notes
+
+Both operations have the same cost, therefore deleting a mismatching
+character and keeping it and later replacing it are equivalent – both
+increase the total cost by one.  
+Consequently, an optimal strategy never keeps a character that does not
+already match the required pattern position; such characters are simply
+deleted.
+
+--------------------------------------------------------------------

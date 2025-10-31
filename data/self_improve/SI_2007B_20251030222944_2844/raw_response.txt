@@ -1,0 +1,12 @@
+<|channel|>analysis<|message|>The user wants: "You are an experienced competitive programming problem setter. Please modify at least one condition of the problem to design a new, more difficult problem. This new problem must require a different solution approach from the original and should not be solvable using heuristic methods. The problem must be of such quality and novelty that it could be accepted on a platform like Codeforces, or at the very least serve as a valuable training exercise. In the problem statement, please include time and space constraints and provide sample test cases. Furthermore, please write an accepted C++ solution, along with a complexity analysis, a proof of correctness, and a clear explanation.
+
+Response Format:
+
+<begin of problem statement for the new problem>
+// Problem statement for the new problem
+<end of problem statement for the new problem>
+
+<begin of accepted solution for the new problem>
+// Accepted solution for the new problem
+<end of accepted solution for the new problem>
+

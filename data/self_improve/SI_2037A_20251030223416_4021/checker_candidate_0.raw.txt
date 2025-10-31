@@ -1,0 +1,5 @@
+<|channel|>analysis<|message|>We need to determine appropriate checker.
+
+Problem: compute maximum score integer. Input: test cases, output: integer per test case. So we just need to compare integer outputs. The answer is a single integer per test case. The checker can be simple: compare sequences of integers, ignoring whitespace. That's ncmp.cpp (compares sequences of integers). However there are multiple test cases; the output is multiple lines, each integer. ncmp compares integer sequences, ignoring trailing whitespace. That's suitable.
+
+Thus answer: ncmp.cpp.<|end|><|start|>assistant<|channel|>final<|message|>ncmp.cpp

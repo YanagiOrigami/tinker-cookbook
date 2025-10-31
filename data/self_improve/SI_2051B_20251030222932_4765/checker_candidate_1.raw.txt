@@ -1,0 +1,5 @@
+<|channel|>analysis<|message|>The task: "Implement a testlib checker for this problem." We need to decide if standard checker suffices or need custom checker.
+
+Problem: output single integer D (day). The answer is a single integer per test case. So we need to compare sequences of integers, ignoring whitespace; each test case line contains an integer. This is exactly ncmp.cpp (compares sequences of integers). So standard checker ncmp.cpp works.
+
+Thus answer: ncmp.cpp.<|end|><|start|>assistant<|channel|>final<|message|>ncmp.cpp

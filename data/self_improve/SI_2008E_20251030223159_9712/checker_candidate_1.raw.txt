@@ -1,0 +1,3 @@
+<|channel|>analysis<|message|>We need to determine appropriate checker for Alternating String Reconstruction problem. Need to output minimum cost integer. Input: multiple test cases. Output: integer per test case. So we just need to compare sequences of integers, ignoring trailing whitespace. That's standard ncmp.cpp (comparing sequences of integers). However there is also requirement that each test case output single integer; order matters. ncmp compares sequences of integers line by line ignoring whitespace absolutely fine. It just compares all integers in order. That works.
+
+Thus answer: ncmp.cpp.<|end|><|start|>assistant<|channel|>final<|message|>ncmp.cpp

@@ -1,0 +1,10 @@
+{
+  "generated_ids": [
+    "SI_2003C_20251031163734_5935",
+    "SI_2030B_20251031163934_6501",
+    "SI_2027A_20251031164421_3670",
+    "SI_2032D_20251031164549_1542"
+  ],
+  "output_dir": "/Users/zeyushen/Desktop/tinker-cookbook/data/self_improve",
+  "source_parquet": "/Users/zeyushen/Desktop/tinker-cookbook/LiveCodeBench-Pro/data/biannual_2024_7_12-00000-of-00001.parquet"
+}

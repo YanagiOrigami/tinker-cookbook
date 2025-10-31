@@ -1,0 +1,3 @@
+<|channel|>analysis<|message|>We need to decide which checker is appropriate. Problem: output a single integer D for each test case. So output is sequence of integers (one per line). Standard checker ncmp.cpp compares sequences of integers ignoring trailing whitespace. That's sufficient.
+
+Thus answer: ncmp.cpp.<|end|><|start|>assistant<|channel|>final<|message|>ncmp.cpp

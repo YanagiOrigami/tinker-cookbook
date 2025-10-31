@@ -1,0 +1,1 @@
+<|channel|>analysis<|message|>The user wants new problem statement and C++ solution. Must output exactly two sections with tags <begin of problem statement for the new problem> ... <end of problem statement for the new problem> and <begin of accepted solution for the new problem> ... <end of accepted solution for the new problem>.

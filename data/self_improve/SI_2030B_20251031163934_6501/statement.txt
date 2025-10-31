@@ -1,0 +1,85 @@
+**Problem Statement – Balanced Zero‑Subsequences**
+
+For a binary string `t` let  
+
+* `C0(t)` be the number of **non‑empty subsequences of length exactly `L`** that consist only of the character ‘0’.
+* `C1(t)` be the number of **non‑empty subsequences of length exactly `L`** that contain at least one ‘1’.
+
+(Every subsequence is counted as many times as it appears in `t`.  
+A subsequence is obtained by deleting any (possibly zero) characters, the remaining order is kept.)
+
+The **balanced value** of a binary string `t` is  
+
+```
+B(t) = | C0(t) – C1(t) |
+```
+
+You are given two integers `n` and `L` (`1 ≤ L ≤ n`).  
+Your task is to output **any** binary string `s` of length `n` whose balanced value is as small as possible.
+
+If several strings obtain the minimal value, you may output any of them.
+
+--------------------------------------------------------------------
+
+### Input
+
+The first line contains an integer `T` (`1 ≤ T ≤ 10^4`) – the number of test cases.
+
+Each of the next `T` lines contains two integers `n` and `L` (`1 ≤ L ≤ n ≤ 2·10^5`).
+
+It is guaranteed that the sum of `n` over all test cases does not exceed `2·10^5`.
+
+### Output
+
+For each test case output on a separate line a binary string `s` of length `n` whose balanced value is minimum possible.
+
+### Example
+
+#### Input
+```
+3
+3 1
+5 2
+4 3
+```
+
+#### Output
+```
+001
+00111
+1111
+```
+
+### Explanation
+
+*Test case 1:* `n = 3 , L = 1`.  
+String `001` contains two ‘0’-only subsequences of length 1 (`0` from position 1 and `0` from position 2) and one subsequence containing a ‘1’ (`1`).  
+`B = |2 – 1| = 1`, which is optimal.
+
+*Test case 2:* `n = 5 , L = 2`.  
+String `00111` has `C0 = C(2,2) = 1` (`00`) and `C1 = C(5,2) – 1 = 9`.  
+`B = |1 – 9| = 8`, and any string with exactly two zeros yields the same minimal value.
+
+*Test case 3:* `n = 4 , L = 3`.  
+All subsequences of length 3 contain at least one ‘1’ whatever the string, therefore `C0 = 0` and `C1 = C(4,3) = 4`.  
+`B = 4`, which is the minimum.
+
+--------------------------------------------------------------------
+
+### Constraints
+
+* `1 ≤ T ≤ 10^4`
+* `1 ≤ L ≤ n ≤ 2·10^5`
+* Σ `n` over all test cases ≤ `2·10^5`
+
+--------------------------------------------------------------------
+
+### Notes
+
+* The value of `C(k, L)` denotes the binomial coefficient “k choose L”.
+* For a fixed string, only the **number of zeros** matters:  
+  if a string contains `k` zeros (`k ≥ L`), then `C0 = C(k, L)` and `C1 = C(n, L) – C(k, L)`.  
+  Therefore the problem reduces to choosing an integer `k` (`L ≤ k ≤ n`) that minimises  
+  `| 2·C(k, L) – C(n, L) |`.  
+
+--------------------------------------------------------------------

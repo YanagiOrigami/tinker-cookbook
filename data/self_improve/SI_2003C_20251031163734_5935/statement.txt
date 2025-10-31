@@ -1,0 +1,75 @@
+**Problem – Maximal “Interesting” Pairs**
+
+You are given a string `s` consisting of lowercase Latin letters.  
+You may reorder the characters of `s` arbitrarily (use each character exactly as many times as it appears).
+
+For a reordered string `t` ( `|t| = n` ) a pair of indices `(i , j)` (`1 ≤ i < j ≤ n`) is called **interesting** if **at least one** of the following holds
+
+* `t[i] = t[j]`;
+* there exists an index `k` with `i < k < j` such that `t[k]` is different from **both** `t[i]` and `t[j]`.
+
+In other words, a pair with different ends is interesting iff inside the interval there is a character that is distinct from the two ends.
+
+Your task is to reorder `s` so that the number of interesting pairs is **maximal**.
+If several reorderings give the maximal number, output any of them.
+
+--------------------------------------------------------------------
+
+### Input
+The first line contains an integer `q` (`1 ≤ q ≤ 10⁴`) – the number of test cases.  
+The description of the test cases follows.
+
+Each test case consists of two lines:
+
+* the first line contains an integer `n` (`2 ≤ n ≤ 2·10⁵`) – the length of the string,
+* the second line contains the string `s` of length `n`.
+
+It is guaranteed that the total sum of `n` over all test cases does not exceed `2·10⁵`.
+
+### Output
+For each test case output a string `t` – a permutation of `s` that maximises the number of interesting pairs.
+If several strings are optimal, output any of them.
+
+--------------------------------------------------------------------
+
+### Example
+
+**Input**
+```
+3
+5
+abaca
+6
+aabbcc
+8
+zzzxxyyy
+```
+
+**Output**
+```
+aaabc
+abcabc
+xyzxyzzy
+```
+
+*Explanation* (first test case)  
+In `aaabc` all pairs are interesting except the pair `(4,5)` (`b,c`) because the substring `bc` has length 2 and there is no character between them that differs from both ends. All other `10` pairs are interesting, which is the maximum possible.
+
+--------------------------------------------------------------------
+
+### Constraints
+* `1 ≤ q ≤ 10⁴`
+* `2 ≤ n ≤ 2·10⁵`
+* total `n` over the whole input ≤ `2·10⁵`
+* `s` consists only of characters `'a'` … `'z'`.
+
+--------------------------------------------------------------------
+
+### Note
+For a pair whose two ends are different, it **fails** to be interesting only when the two positions are adjacent, because only then there is no inner position `k`.  
+All other pairs with different ends are automatically interesting, because among the at least one inner position we can always pick a character different from both ends (the only way this could fail is if every inner character equals one of the ends, which inevitably creates an adjacent equal‑character segment, see the solution for a formal proof).
+
+Hence the problem reduces to **minimising** the number of adjacent pairs with different characters.  
+The optimal construction is obtained by placing characters in a *round‑robin* order: repeatedly write one remaining occurrence of each letter, looping over the alphabet from `'a'` to `'z'`. This spreads equal letters as far apart as possible and therefore minimises the number of adjacent mismatches, which in turn maximises the number of interesting pairs.
+
+--------------------------------------------------------------------

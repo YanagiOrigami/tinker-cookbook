@@ -1,0 +1,16 @@
+{
+  "type": "default",
+  "time_limit": "2s",
+  "memory_limit": "512m",
+  "checker": "chk.cc",
+  "input_prefix": "",
+  "output_prefix": "",
+  "input_suffix": ".in",
+  "output_suffix": ".ans",
+  "subtasks": [
+    {
+      "score": 100,
+      "n_cases": 10
+    }
+  ]
+}

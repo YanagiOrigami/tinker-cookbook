@@ -10,9 +10,7 @@ async def remote_code_judge(response: str, label: str) -> float:
     # print("Hello from remote_code_judge")
     # print("Response received for judging:", response)
     # print("Problem label:", label)
-    judgeHost = os.getenv("JUDGE_HOST", "LightCPVerifier")
-    judgePort = os.getenv("JUDGE_PORT", "8081")
-    judgeBaseUrl = f"http://{judgeHost}:{judgePort}"
+    judgeBaseUrl = "http://38.80.122.117:8081"
 
     code, lang = extract_code(response)
     if not code:

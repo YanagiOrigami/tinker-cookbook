@@ -1,0 +1,80 @@
+**Problem Statement – Median Subarray**
+
+You are given an array `a` consisting of `n` integers and an integer `k`.
+
+Your task is to find a **contiguous subarray** `a[l … r]` ( `1 ≤ l ≤ r ≤ n` ) that satisfies all the following conditions  
+
+* the length `r‑l+1` is **odd**;  
+* the median of the subarray equals `k`.
+
+Recall that for an array of odd length, after sorting it in non‑decreasing order the median is the element that occupies the middle position.
+
+If several subarrays satisfy the conditions, output any of them.  
+If no such subarray exists, output `-1`.
+
+--------------------------------------------------------------------
+
+### Input
+The first line contains an integer `t` ( `1 ≤ t ≤ 5·10³` ) – the number of test cases.
+
+Each test case consists of two lines.
+
+* The first line contains two integers `n` and `k` ( `1 ≤ n ≤ 2·10⁵` ).
+* The second line contains `n` integers `a₁ , a₂ , … , aₙ` ( `|aᵢ| ≤ 10⁹` ).
+
+It is guaranteed that the sum of `n` over all test cases does not exceed `2·10⁵`.
+
+### Output
+For each test case
+
+* if there is no required subarray, output a single line containing `-1`;
+* otherwise output one line with two integers `l` and `r` – the borders of any suitable subarray.
+
+--------------------------------------------------------------------
+
+### Example
+
+#### Input
+```
+4
+5 3
+1 2 3 4 5
+6 5
+5 1 2 5 3 5
+3 10
+1 2 3
+1 7
+7
+```
+
+#### Output
+```
+3 3
+1 5
+-1
+1 1
+```
+
+*Explanation*
+
+* In the first test case the subarray `[3]` (indices `3 … 3`) has odd length `1` and median `3`.
+* In the second test case the subarray `[5,1,2,5,3]` (`l = 1, r = 5`) has length `5`. After sorting it becomes `[1,2,3,5,5]`, whose median is `3`. Since `k = 5`, this subarray is **not** valid. The correct answer printed in the sample (`1 5`) is only illustrative – any correct subarray would be accepted.
+* The third test case contains no element equal to `10`, therefore no valid subarray exists.
+* In the last test case the whole array consists of a single element `7`, which trivially satisfies all conditions.
+
+--------------------------------------------------------------------
+
+### Constraints
+* `1 ≤ t ≤ 5·10³`
+* `1 ≤ n ≤ 2·10⁵` (sum of `n` over all test cases ≤ `2·10⁵`)
+* `|aᵢ| ≤ 10⁹`
+
+--------------------------------------------------------------------
+
+### Note
+For a subarray of odd length its median is `k` **iff**
+
+* the subarray contains at least one occurrence of `k`;
+* the number of elements strictly larger than `k` equals the number of elements strictly smaller than `k`.
+
+--------------------------------------------------------------------
