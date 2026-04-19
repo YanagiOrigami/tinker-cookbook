@@ -39,7 +39,7 @@ class SandboxFusionClient:
         url: str | None = None,
         max_concurrency: int | None = None,
     ):
-        self._url = url or os.getenv("SANDBOX_URL", "http://localhost:8080/run_code")
+        self._url = url or os.getenv("SANDBOX_URL", "http://localhost:9090/run_code")
         self._max_concurrency = max_concurrency or int(os.getenv("SANDBOX_MAX_CONCURRENCY", "4"))
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
@@ -57,7 +57,7 @@ class SandboxFusionClient:
                     limit=self._max_concurrency,
                     limit_per_host=self._max_concurrency,
                 )
-                timeout = aiohttp.ClientTimeout(total=6000)
+                timeout = aiohttp.ClientTimeout(total=120)
                 self._session = aiohttp.ClientSession(
                     connector=connector,
                     timeout=timeout,

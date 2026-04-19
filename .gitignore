@@ -7,3 +7,6 @@ tinker_cookbook/_version.py
 uv.lock
 skills-workspace/
 tinker-debug-workspace/
+*.jsonl
+*.json
+*.log

@@ -142,7 +142,7 @@ async def sandbox_check_correctness(
 
     try:
         test_cnt = len(json.loads(test_cases["input_output"])["inputs"])
-        total_timeout = (timeout + 1) * test_cnt + 5
+        total_timeout = min((timeout + 1) * test_cnt + 5, 60)
 
         if use_backend == SandboxBackend.MODAL:
             return await _check_with_modal(test_cases, generation, timeout, total_timeout)
