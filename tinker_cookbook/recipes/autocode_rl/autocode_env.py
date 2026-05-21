@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import random
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, cast
@@ -106,7 +107,7 @@ _AUTOCODE_SYSTEM_MESSAGE = (
     "You are an expert programmer. You will be given a question "
     "(problem specification) and will generate a correct program "
     "that matches the specification and passes all tests. "
-    "You may write your solution in either Python or C++."
+    "You should write your solution in C++."
 )
 
 _AUTOCODE_FORMATTING = (
@@ -119,14 +120,12 @@ _AUTOCODE_FORMATTING = (
 def build_autocode_prompt(problem_statement: str) -> str:
     """Build the full prompt for a competitive-programming task.
 
-    Mirrors the LiveCodeBench prompt structure but accepts both Python and C++.
+    Mirrors the LiveCodeBench prompt structure but accepts only C++.
     """
     prompt = _AUTOCODE_SYSTEM_MESSAGE + "\n\n"
     prompt += problem_statement + "\n\n"
     prompt += f"### Format: {_AUTOCODE_FORMATTING}\n"
-    prompt += "```python\n# YOUR CODE HERE\n```\n"
-    prompt += "or\n"
-    prompt += "```cpp\n// YOUR CODE HERE\n```\n\n"
+    prompt += "```cpp\n// YOUR CODE HERE\n```\n"
     prompt += "### Answer: (use the provided format with backticks)\n\n"
     return prompt
 
@@ -568,6 +567,9 @@ class AutocodeDataset(RLDataset):
             training it can be set higher (default ``1``); use
             ``max_steps`` on the training config to control duration
             instead of inflating the dataset length.
+        seed: Base seed for the per-epoch permutation.  Each epoch uses
+            ``random.Random(seed + epoch)`` to shuffle builder indices,
+            so order varies across epochs but stays reproducible.
     """
 
     def __init__(
@@ -575,17 +577,30 @@ class AutocodeDataset(RLDataset):
         builders: list[EnvGroupBuilder],
         batch_size: int,
         recurrent: int = 1,
+        seed: int = 0,
     ):
         self.builders = builders
         self.batch_size = batch_size
         self.recurrent = recurrent
+        self._seed = seed
+        self._perms: dict[int, list[int]] = {}
+
+    def _epoch_perm(self, epoch: int) -> list[int]:
+        if epoch not in self._perms:
+            rng = random.Random(self._seed + epoch)
+            perm = list(range(len(self.builders)))
+            rng.shuffle(perm)
+            self._perms[epoch] = perm
+        return self._perms[epoch]
 
     def get_batch(self, index: int) -> Sequence[EnvGroupBuilder]:
-        num_batches = math.ceil(len(self.builders) / self.batch_size)
+        num_batches = self.num_unique_batches
+        epoch = index // num_batches
         wrapped = index % num_batches
+        perm = self._epoch_perm(epoch)
         start = wrapped * self.batch_size
-        end = start + self.batch_size
-        return self.builders[start:end]
+        end = min(start + self.batch_size, len(self.builders))
+        return [self.builders[i] for i in perm[start:end]]
 
     @property
     def num_unique_batches(self) -> int:
@@ -648,7 +663,10 @@ class AutocodeDatasetBuilder(RLDatasetBuilder):
             for t in train_tasks
         ]
         train_dataset = AutocodeDataset(
-            train_builders, self.batch_size, recurrent=self.train_recurrent,
+            train_builders,
+            self.batch_size,
+            recurrent=self.train_recurrent,
+            seed=self.seed,
         )
 
         # --- test ---
