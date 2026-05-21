@@ -42,6 +42,11 @@ from tinker_cookbook.rl.rollout_strategy import RetryOnFailure
 from tinker_cookbook.rl.train import AsyncConfig, Config, main
 from tinker_cookbook.sandbox import SandboxBackend
 
+# Suppress tinker SDK 0.21+ code-quality nag: the SDK's @capture_exceptions
+# decorator logs a WARNING every sample call when the caller is not a
+# TelemetryProvider, which the cookbook hasn't adapted to.  Functionally a no-op.
+logging.getLogger("tinker.lib.telemetry").setLevel(logging.ERROR)
+
 logger = logging.getLogger(__name__)
 
 
