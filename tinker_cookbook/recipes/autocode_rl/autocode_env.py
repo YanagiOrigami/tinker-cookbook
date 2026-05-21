@@ -203,7 +203,8 @@ class AutocodeEnv(Env):
         convo = self.convo_prefix + [
             {"role": "user", "content": _build_question(self.task)},
         ]
-        message, parse_success = self.renderer.parse_response(action)
+        message, parse_termination = self.renderer.parse_response(action)
+        parse_success = parse_termination.is_clean
         content = renderers.get_text_content(message)
 
         # --- format check ---
@@ -293,7 +294,8 @@ class LCBEvalEnv(Env):
         return self.renderer.build_generation_prompt(convo), self.stop_condition
 
     async def step(self, action: Action, *, extra: ActionExtra | None = None) -> StepResult:
-        message, parse_success = self.renderer.parse_response(action)
+        message, parse_termination = self.renderer.parse_response(action)
+        parse_success = parse_termination.is_clean
         content = renderers.get_text_content(message)
 
         code = extract_code_from_model(content)
