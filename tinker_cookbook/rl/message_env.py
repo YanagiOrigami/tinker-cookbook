@@ -72,6 +72,11 @@ class EnvFromMessageEnv(types.Env):
         self.context_overflow_reward = context_overflow_reward
         self._base_stop_condition = renderer.get_stop_sequences()
 
+        # Forward example_id from the inner MessageEnv for trajectory storage.
+        # This ensures truncated examples (where MessageEnv.step() never runs)
+        # still get the correct example_id in stored trajectories.
+        self.example_id: str | None = getattr(message_env, "example_id", None)
+
     async def _render_in_thread(self, messages: list[Message], **kwargs) -> tinker.ModelInput:
         """Run build_generation_prompt in a thread to avoid blocking the event loop.
 
@@ -120,9 +125,9 @@ class EnvFromMessageEnv(types.Env):
                 metrics={"max_tokens_reached": 1.0},
             )
 
-        assistant_message, parse_success = self.renderer.parse_response(action)
+        assistant_message, termination = self.renderer.parse_response(action)
 
-        if not parse_success:
+        if not termination.is_clean:
             return types.StepResult(
                 reward=self.failed_parse_reward,
                 episode_done=self.terminate_on_parse_error,

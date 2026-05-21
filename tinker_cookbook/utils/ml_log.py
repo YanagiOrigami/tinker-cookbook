@@ -10,7 +10,10 @@ from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from tinker_cookbook.stores.training_store import TrainingRunStore
 
 import chz
 from rich.console import Console
@@ -140,6 +143,11 @@ class Logger(ABC):
         """
         return None
 
+    @property
+    def store(self) -> "TrainingRunStore | None":
+        """The ``TrainingRunStore`` backing this logger, or ``None``."""
+        return None
+
 
 class _PermissiveJSONEncoder(json.JSONEncoder):
     """A JSON encoder that handles non-encodable objects by converting them to their type string."""
@@ -160,36 +168,42 @@ class JsonLogger(Logger):
     :meth:`log_metrics` calls append one JSON object per line to
     ``metrics.jsonl``.
 
+    All file I/O goes through a :class:`~tinker_cookbook.stores.TrainingRunStore`,
+    enabling cloud storage backends.
+
     Args:
         log_dir (str | Path): Directory for output files (created if missing).
+        store (TrainingRunStore | None): Optional pre-configured store.
+            If ``None`` (default), a ``LocalStorage``-backed store is created.
     """
 
-    def __init__(self, log_dir: str | Path):
-        self.log_dir = Path(log_dir).expanduser()
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.metrics_file = self.log_dir / "metrics.jsonl"
+    def __init__(self, log_dir: str | Path, store: "TrainingRunStore | None" = None) -> None:
+        from tinker_cookbook.stores.storage import storage_from_uri
+        from tinker_cookbook.stores.training_store import TrainingRunStore as _TRS
+
+        self.log_dir = str(log_dir)
+        self._store = store or _TRS(storage_from_uri(self.log_dir))
         self._logged_hparams = False
 
+    @property
+    def store(self) -> "TrainingRunStore":
+        """The ``TrainingRunStore`` backing this logger (always available)."""
+        return self._store
+
     def log_hparams(self, config: Any) -> None:
-        """Log hyperparameters to a separate config.json file."""
+        """Log hyperparameters to config.json and code diff."""
         if not self._logged_hparams:
             config_dict = dump_config(config)
-            config_file = self.log_dir / "config.json"
-            with open(config_file, "w") as f:
-                json.dump(config_dict, f, indent=2, cls=_PermissiveJSONEncoder)
-            diff_file = code_state()
-            with open(self.log_dir / "code.diff", "w") as f:
-                f.write(diff_file)
+            # Use _PermissiveJSONEncoder as safety net for non-serializable values
+            sanitized = json.loads(json.dumps(config_dict, cls=_PermissiveJSONEncoder))
+            self._store.write_config(sanitized)
+            self._store.write_code_diff(code_state())
             self._logged_hparams = True
 
     def log_metrics(self, metrics: dict[str, Any], step: int | None = None) -> None:
         """Append metrics to JSONL file."""
-        log_entry = {"step": step} if step is not None else {}
-        log_entry.update(metrics)
-
-        with open(self.metrics_file, "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
-            logger.info("Wrote metrics to %s", self.metrics_file)
+        self._store.write_metrics(metrics, step)
+        logger.info("Wrote metrics to %s/metrics.jsonl", self.log_dir)
 
 
 class PrettyPrintLogger(Logger):
@@ -431,9 +445,12 @@ class TrackioLogger(Logger):
         )
 
     def log_hparams(self, config: Any) -> None:
-        """Log hyperparameters to trackio."""
-        if self.run and trackio is not None:
-            pass
+        """Log hyperparameters to trackio.
+
+        Trackio receives its config at ``init()`` time; there is no post-init
+        config update API.  This method is a no-op because the config was
+        already forwarded during ``__init__``.
+        """
 
     def log_metrics(self, metrics: dict[str, Any], step: int | None = None) -> None:
         """Log metrics to trackio."""
@@ -495,6 +512,14 @@ class MultiplexLogger(Logger):
                 return url
         return None
 
+    @property
+    def store(self) -> "TrainingRunStore | None":
+        """Return the TrainingRunStore from the JsonLogger child, if any."""
+        for lg in self.loggers:
+            if isinstance(lg, JsonLogger):
+                return lg.store
+        return None
+
 
 def setup_logging(
     log_dir: str,
@@ -516,15 +541,16 @@ def setup_logging(
     Returns:
         MultiplexLogger that combines all enabled loggers
     """
-    # Create log directory
-    log_dir_path = Path(log_dir).expanduser()
-    log_dir_path.mkdir(parents=True, exist_ok=True)
+    # Cloud URIs (s3://, gs://, az://) go through FsspecStorage; file:// and
+    # bare paths are local.  Third-party loggers need a local directory.
+    is_cloud = "://" in log_dir and not log_dir.startswith("file://")
+    local_log_dir: str | None = None if is_cloud else str(Path(log_dir).expanduser())
 
     # Initialize loggers
     loggers = []
 
-    # Always add JSON logger
-    loggers.append(JsonLogger(log_dir_path))
+    # Always add JSON logger (handles both local and cloud paths via Storage)
+    loggers.append(JsonLogger(log_dir))
 
     # Always add pretty print logger
     loggers.append(PrettyPrintLogger())
@@ -540,7 +566,7 @@ def setup_logging(
                 WandbLogger(
                     project=wandb_project,
                     config=config,
-                    log_dir=log_dir_path,
+                    log_dir=local_log_dir,
                     wandb_name=wandb_name,
                 )
             )
@@ -563,7 +589,7 @@ def setup_logging(
                 NeptuneLogger(
                     project=wandb_project,
                     config=config,
-                    log_dir=log_dir_path,
+                    log_dir=local_log_dir,
                     neptune_name=wandb_name,
                 )
             )
@@ -573,7 +599,7 @@ def setup_logging(
             TrackioLogger(
                 project=wandb_project,
                 config=config,
-                log_dir=log_dir_path,
+                log_dir=local_log_dir,
                 trackio_name=wandb_name,
             )
         )
@@ -586,10 +612,10 @@ def setup_logging(
     if config is not None:
         ml_logger.log_hparams(config)
 
-    if do_configure_logging_module:
-        configure_logging_module(str(log_dir_path / "logs.log"))
+    if do_configure_logging_module and local_log_dir is not None:
+        configure_logging_module(str(Path(local_log_dir) / "logs.log"))
 
-    logger.info(f"Logging to: {log_dir_path}")
+    logger.info(f"Logging to: {log_dir}")
     return ml_logger
 
 

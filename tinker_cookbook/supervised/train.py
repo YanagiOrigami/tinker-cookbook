@@ -9,6 +9,8 @@ refer to `tinker_cookbook/recipes/sl_loop.py`.
 
 import asyncio
 import logging
+import time
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -79,6 +81,15 @@ class Config:
             (0 disables).
         max_steps (int | None): Hard cap on training steps.  ``None`` trains
             for ``num_epochs * n_batches``.
+        async_periodic_saves (bool): When ``True``, periodic checkpoint saves
+            run as fire-and-forget background tasks instead of blocking the
+            training loop.  The checkpoint record is written to
+            ``checkpoints.jsonl`` once the save completes.  The final
+            checkpoint always blocks.  Default ``False``.
+        submit_ahead (int): How many batches to submit ahead of the one being
+            waited on.  ``1`` (default) matches the historical single-lookahead
+            behavior; ``0`` disables pipelining entirely; higher values deepen
+            the pipeline for more overlap at the cost of memory.
 
     Example::
 
@@ -124,6 +135,10 @@ class Config:
     rolling_save_every: int = 0
     # TTL for rolling checkpoints; short to auto-clean if explicit deletion fails.
     rolling_ttl_seconds: int = 7200  # 2 hours
+    # When True, periodic checkpoint saves run as background asyncio tasks
+    # (fire-and-forget) instead of blocking the training loop. The final
+    # checkpoint always blocks regardless of this setting.
+    async_periodic_saves: bool = False
 
     # Adam optimizer parameters
     adam_beta1: float = 0.9
@@ -139,6 +154,11 @@ class Config:
 
     # Maximum number of training steps. If None, train for num_epochs * n_batches.
     max_steps: int | None = None
+
+    # How many batches to submit ahead of the one being waited on.
+    # 1 = historical single-lookahead behavior (submit N+1 while finishing N).
+    # 0 = no pipelining, 2+ = deeper pipeline.
+    submit_ahead: int = 1
 
 
 @dataclass
@@ -271,6 +291,7 @@ async def main(config: Config):
         config=config,
         do_configure_logging_module=True,
     )
+    store = ml_logger.store
     if config.enable_trace:
         # Get and rename the current (main) task
         current_task = asyncio.current_task()
@@ -318,13 +339,16 @@ async def main(config: Config):
             user_metadata=user_metadata,
         )
 
-    rolling_mgr = checkpoint_utils.RollingCheckpointManager(
+    checkpoint_mgr = checkpoint_utils.CheckpointManager(
         training_client=training_client,
         service_client=service_client,
         log_path=config.log_path,
-        rolling_save_every=config.rolling_save_every,
         save_every=config.save_every,
+        ttl_seconds=config.ttl_seconds,
+        rolling_save_every=config.rolling_save_every,
         rolling_ttl_seconds=config.rolling_ttl_seconds,
+        store=store,
+        async_periodic_saves=config.async_periodic_saves,
     )
 
     dataset, maybe_test_dataset = config.dataset_builder()
@@ -410,20 +434,7 @@ async def main(config: Config):
         metrics = submitted.metrics
         metrics["progress"] = min((submitted.step + 1) / progress_denominator, 1.0)
 
-        if config.save_every > 0 and submitted.step % config.save_every == 0 and submitted.step > 0:
-            async with trace.scope_span("save_checkpoint"):
-                # Enqueue a checkpoint save after the forward/backward and optimizer
-                # requests for this step; the snapshot will reflect post-step weights.
-                await checkpoint_utils.save_checkpoint_async(
-                    training_client=training_client,
-                    name=f"{submitted.step:06d}",
-                    log_path=config.log_path,
-                    loop_state={"epoch": submitted.epoch_idx, "batch": submitted.batch_idx},
-                    kind="both",
-                    ttl_seconds=config.ttl_seconds,
-                )
-
-        await rolling_mgr.maybe_save_async(
+        await checkpoint_mgr.maybe_save_async(
             step=submitted.step,
             loop_state={"epoch": submitted.epoch_idx, "batch": submitted.batch_idx},
         )
@@ -454,20 +465,42 @@ async def main(config: Config):
         if submitted.infrequent_eval_metrics is not None:
             metrics.update(submitted.infrequent_eval_metrics)
 
-    pending_batch: SubmittedBatch | None = None
     log_path = Path(config.log_path)
 
     async def finish_and_log(submitted: SubmittedBatch, window: trace.IterationWindow) -> None:
         """Finish a batch, merge timing metrics, and log."""
         await finish_batch(submitted)
         submitted.metrics.update(window.get_timing_metrics())
-        window.write_spans_jsonl(log_path / "timing_spans.jsonl", step=submitted.step)
+        window.save_timing(submitted.step, store=store)
         if config.span_chart_every > 0 and submitted.step % config.span_chart_every == 0:
             iter_dir = iteration_dir(log_path, submitted.step)
             if iter_dir is not None:
                 iter_dir.mkdir(parents=True, exist_ok=True)
                 trace.save_gantt_chart_html(window, submitted.step, iter_dir / "timing_gantt.html")
         ml_logger.log_metrics(metrics=submitted.metrics, step=submitted.step)
+
+    assert config.submit_ahead >= 0, f"submit_ahead must be >= 0, got {config.submit_ahead}"
+
+    # Each step gets its own IterationWindow. Since async is cooperative
+    # (single-threaded), we swap the active window in trace._iteration_window
+    # around each phase so @scope spans land in the correct window.
+    pending: deque[tuple[SubmittedBatch, trace.IterationWindow, float]] = deque()
+    max_pending = 1 + config.submit_ahead
+
+    def _activate_window(window: trace.IterationWindow):
+        return trace._iteration_window.set(window)
+
+    def _deactivate_window(token):
+        trace._iteration_window.reset(token)
+
+    async def drain_oldest() -> None:
+        oldest, window, t_start = pending.popleft()
+        token = _activate_window(window)
+        try:
+            await finish_and_log(oldest, window)
+        finally:
+            window._total_time = time.perf_counter() - t_start
+            _deactivate_window(token)
 
     reached_max_steps = False
     for epoch_idx in range(start_epoch, config.num_epochs):
@@ -480,35 +513,32 @@ async def main(config: Config):
             if config.max_steps is not None and step >= config.max_steps:
                 reached_max_steps = True
                 break
-            with trace.trace_iteration(step=step) as window:
+            window = trace.IterationWindow()
+            t_start = time.perf_counter()
+            token = _activate_window(window)
+            try:
                 submitted_batch = await submit_batch(epoch_idx, batch_idx)
-                if pending_batch is not None:
-                    await finish_and_log(pending_batch, window)
-            pending_batch = submitted_batch
+            finally:
+                _deactivate_window(token)
+            pending.append((submitted_batch, window, t_start))
+            if len(pending) >= max_pending:
+                await drain_oldest()
         if reached_max_steps:
             break
 
-    if pending_batch is not None:
-        with trace.trace_iteration(step=pending_batch.step) as window:
-            await finish_and_log(pending_batch, window)
+    while pending:
+        await drain_oldest()
 
     did_train = start_epoch < config.num_epochs and (
         config.max_steps is None or start_epoch * n_batches + start_batch < config.max_steps
     )
     if did_train:
-        await checkpoint_utils.save_checkpoint_async(
-            training_client=training_client,
-            name="final",
-            log_path=config.log_path,
-            kind="both",
+        await checkpoint_mgr.save_final_async(
             loop_state={"epoch": config.num_epochs, "batch": 0},
-            ttl_seconds=None,
         )
     else:
         logger.info("Training was already complete; nothing to do")
-    # Clean up rolling checkpoints after the final save so that the last
-    # entry in checkpoints.jsonl always points to valid server-side data.
-    await rolling_mgr.finalize_async()
+        await checkpoint_mgr.finalize_async()
 
     ml_logger.close()
     logger.info("Training completed successfully")

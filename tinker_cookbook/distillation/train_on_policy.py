@@ -3,11 +3,16 @@ Implements on-policy distillation. For more details, see:
 https://thinkingmachines.ai/blog/on-policy-distillation
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from tinker_cookbook.stores.training_store import TrainingRunStore
 
 import chz
 import tinker
@@ -21,7 +26,6 @@ from tinker_cookbook.distillation.datasets import (
     DistillationDatasetConfig,
 )
 from tinker_cookbook.eval.evaluators import SamplingClientEvaluator, SamplingClientEvaluatorBuilder
-from tinker_cookbook.exceptions import ConfigurationError
 from tinker_cookbook.rl.data_processing import (
     assemble_training_data,
     compute_advantages,
@@ -40,7 +44,6 @@ from tinker_cookbook.rl.types import (
 )
 from tinker_cookbook.tokenizer_utils import Tokenizer
 from tinker_cookbook.utils import ml_log, trace
-from tinker_cookbook.utils.deprecation import warn_deprecated
 from tinker_cookbook.utils.misc_utils import iteration_dir, safezip
 
 logger = logging.getLogger(__name__)
@@ -164,8 +167,6 @@ class Config:
 
     # Maximum number of training steps. If None, train on the full dataset.
     max_steps: int | None = None
-    # Deprecated alias for max_steps. Use max_steps instead.
-    max_step: int | None = None
 
 
 @trace.scope
@@ -228,12 +229,14 @@ async def do_train_step_and_get_sampling_client(
     config: Config,
     i_batch: int,
     training_client: tinker.TrainingClient,
+    checkpoint_mgr: checkpoint_utils.CheckpointManager,
     service_client: tinker.ServiceClient,
     tokenizer: Tokenizer,
     env_group_builders_P: Sequence[EnvGroupBuilder],
     trajectory_groups_P: list[TrajectoryGroup],
     dataset_indices_P: list[int],
     teacher_clients: list[tinker.SamplingClient],
+    store: TrainingRunStore | None = None,
 ) -> tuple[tinker.SamplingClient, dict[str, Any]]:
     trace.update_scope_context({"step": i_batch})
 
@@ -262,12 +265,11 @@ async def do_train_step_and_get_sampling_client(
 
     sampling_client, full_batch_metrics = await compute_full_batch_metrics_and_get_sampling_client(
         training_client,
+        checkpoint_mgr,
         # NOTE: saving the checkpoint as the i + 1 step
         i_batch + 1,
         data_D,
         training_logprobs_D,
-        config.log_path,
-        config.save_every,
         config.compute_post_kl,
     )
     metrics.update(full_batch_metrics)
@@ -282,6 +284,7 @@ async def do_sync_training(
     num_batches: int,
     config: Config,
     training_client: tinker.TrainingClient,
+    checkpoint_mgr: checkpoint_utils.CheckpointManager,
     service_client: tinker.ServiceClient,
     evaluators: list[SamplingClientEvaluator],
     dataset: CompositeDataset,
@@ -293,7 +296,7 @@ async def do_sync_training(
 
     # Initial sampling client
     sampling_client, _ = await save_checkpoint_and_get_sampling_client(
-        training_client, start_batch, config.log_path, config.save_every
+        training_client, checkpoint_mgr, start_batch, start_batch
     )
 
     log_path = Path(config.log_path)
@@ -342,6 +345,7 @@ async def do_sync_training(
                 config,
                 i_batch,
                 training_client,
+                checkpoint_mgr,
                 service_client,
                 tokenizer,
                 env_group_builders_P,
@@ -354,7 +358,7 @@ async def do_sync_training(
 
         # Log timing metrics from trace_iteration window
         metrics.update(window.get_timing_metrics())
-        window.write_spans_jsonl(log_path / "timing_spans.jsonl", step=i_batch)
+        window.save_timing(i_batch, store=ml_logger.store)
         if config.span_chart_every > 0 and i_batch % config.span_chart_every == 0:
             iter_dir = iteration_dir(log_path, i_batch)
             if iter_dir is not None:
@@ -365,18 +369,9 @@ async def do_sync_training(
 
 @trace.scope
 async def main(
-    config: Config | None = None,
-    *,
-    cfg: Config | None = None,
+    config: Config,
 ):
     """Main training loop for on-policy distillation."""
-    if cfg is not None:
-        warn_deprecated("cfg", removal_version="0.3.0", message="Use 'config' instead.")
-        if config is not None:
-            raise ConfigurationError("Cannot pass both 'config' and 'cfg'. Use 'config'.")
-        config = cfg
-    if config is None:
-        raise ConfigurationError("'config' is required.")
 
     ml_logger = ml_log.setup_logging(
         log_dir=config.log_path,
@@ -474,17 +469,18 @@ async def main(
     # Wrap datasets in CompositeDataset
     composite_dataset = CompositeDataset(datasets, groups_per_batch_list)
     num_batches = len(composite_dataset)
-    # Resolve max_steps from either max_steps or deprecated max_step
-    effective_max_steps = config.max_steps
-    if config.max_step is not None:
-        if config.max_steps is not None:
-            raise ConfigurationError("Cannot specify both max_steps and max_step. Use max_steps.")
-        warn_deprecated("max_step", removal_version="0.3.0", message="Use 'max_steps' instead.")
-        effective_max_steps = config.max_step
     num_batches = (
-        min(effective_max_steps, num_batches) if effective_max_steps is not None else num_batches
+        min(config.max_steps, num_batches) if config.max_steps is not None else num_batches
     )
     logger.info(f"Will train on {num_batches} batches (dataset has {num_batches})")
+
+    checkpoint_mgr = checkpoint_utils.CheckpointManager(
+        training_client=training_client,
+        service_client=service_client,
+        log_path=config.log_path,
+        save_every=config.save_every,
+        store=ml_logger.store,
+    )
 
     # Training loop
     await do_sync_training(
@@ -493,6 +489,7 @@ async def main(
         num_batches=num_batches,
         config=config,
         training_client=training_client,
+        checkpoint_mgr=checkpoint_mgr,
         service_client=service_client,
         evaluators=evaluators,
         dataset=composite_dataset,
@@ -503,14 +500,7 @@ async def main(
 
     # Save final checkpoint
     if start_batch < num_batches:
-        _ = await checkpoint_utils.save_checkpoint_async(
-            training_client=training_client,
-            name="final",
-            log_path=config.log_path,
-            kind="both",
-            loop_state={"batch": num_batches},
-            ttl_seconds=None,
-        )
+        await checkpoint_mgr.save_final_async(loop_state={"batch": num_batches})
     else:
         logger.info("Training was already complete; nothing to do")
 

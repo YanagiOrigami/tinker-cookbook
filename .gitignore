@@ -10,3 +10,6 @@ tinker-debug-workspace/
 *.jsonl
 *.json
 *.log
+eval_qwen35_35b.md
+run_eval_qwen35.py
+**/__marimo__

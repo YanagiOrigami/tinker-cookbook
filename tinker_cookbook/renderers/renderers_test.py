@@ -462,7 +462,7 @@ TOOL_CAPABLE_MODELS = {
     "Qwen/Qwen3-30B-A3B-Instruct-2507",
     "Qwen/Qwen3-VL-30B-A3B-Instruct",
     "Qwen/Qwen3.5-35B-A3B",
-    "meta-llama/Llama-3.2-1B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
     "deepseek-ai/DeepSeek-V3.1",
     "moonshotai/Kimi-K2-Thinking",
     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
@@ -481,7 +481,7 @@ TOOL_CAPABLE_MODELS = {
 # - renderer_override: None to use get_recommended_renderer_name, or a specific renderer name
 # - hf_kwargs: Extra kwargs to pass to apply_chat_template (e.g., {"thinking": True})
 _HF_TEST_MODELS = [
-    ("meta-llama/Llama-3.2-1B-Instruct", None, {}),
+    ("meta-llama/Llama-3.1-8B-Instruct", None, {}),
     ("Qwen/Qwen3-30B-A3B", None, {}),
     ("Qwen/Qwen3-30B-A3B-Instruct-2507", None, {}),
     ("deepseek-ai/DeepSeek-V3.1", None, {}),  # non-thinking (default)
@@ -610,7 +610,7 @@ def test_generation_against_hf_chat_templates(
 # - Qwen/Qwen3-30B-A3B: HF template adds empty <think> blocks to non-thinking messages
 # Format: (model_name, renderer_override, hf_kwargs) - same as _HF_TEST_MODELS
 _SUPERVISED_TEST_MODELS = [
-    ("meta-llama/Llama-3.2-1B-Instruct", None, {}),
+    ("meta-llama/Llama-3.1-8B-Instruct", None, {}),
     ("Qwen/Qwen3-30B-A3B-Instruct-2507", None, {}),
     ("deepseek-ai/DeepSeek-V3.1", None, {}),  # non-thinking (default)
     ("deepseek-ai/DeepSeek-V3.1", "deepseekv3_thinking", {"thinking": True}),  # thinking mode
@@ -930,8 +930,8 @@ def get_2turn_with_thinking() -> list[Message]:
 
 # Renderers for the consistency test - (model_name, renderer_name)
 _CONSISTENCY_RENDERERS = [
-    ("meta-llama/Llama-3.2-1B-Instruct", "llama3"),
-    ("meta-llama/Llama-3.2-1B-Instruct", "role_colon"),
+    ("meta-llama/Llama-3.1-8B-Instruct", "llama3"),
+    ("meta-llama/Llama-3.1-8B-Instruct", "role_colon"),
     ("Qwen/Qwen3-8B", "qwen3"),
     ("Qwen/Qwen3-8B", "qwen3_disable_thinking"),
     ("Qwen/Qwen3-8B", "qwen3_instruct"),
@@ -1074,10 +1074,10 @@ def test_supervised_generation_parse_consistency(
         )
 
     # Check 2: Parse the action tokens
-    parsed_message, parse_success = renderer.parse_response(ac)
+    parsed_message, termination = renderer.parse_response(ac)
 
     # Check parse success
-    assert parse_success, (
+    assert termination.is_clean, (
         f"Failed to parse action tokens for {renderer_name}.\n"
         f"Action tokens: {ac}\n"
         f"Decoded: {tokenizer.decode(ac)!r}\n"
@@ -1107,7 +1107,7 @@ def test_supervised_generation_parse_consistency(
         ("Qwen/Qwen3-8B", "qwen3_disable_thinking"),
         ("Qwen/Qwen3.5-35B-A3B", "qwen3_5"),
         ("Qwen/Qwen3.5-35B-A3B", "qwen3_5_disable_thinking"),
-        ("meta-llama/Llama-3.2-1B-Instruct", "llama3"),
+        ("meta-llama/Llama-3.1-8B-Instruct", "llama3"),
         # deepseekv3 defaults to non-thinking, deepseekv3_thinking is thinking mode
         ("deepseek-ai/DeepSeek-V3.1", "deepseekv3"),
         ("deepseek-ai/DeepSeek-V3.1", "deepseekv3_thinking"),
@@ -1147,19 +1147,19 @@ def test_eot_parsing(model_name: str, renderer_name: str):
     test_response_with_eot = f"53 + 18 = 71{eot_token}"
     response_tokens = tokenizer.encode(test_response_with_eot, add_special_tokens=False)
 
-    message, format_correct = renderer.parse_response(response_tokens)
+    message, termination = renderer.parse_response(response_tokens)
     assert message["role"] == "assistant"
     assert message["content"] == "53 + 18 = 71"
-    assert format_correct is True
+    assert termination.is_stop_sequence
 
-    # Test case 2: No EOT token - should have format=False
+    # Test case 2: No EOT token - should be malformed
     test_response_no_eot = "53 + 18 = 71"
     response_tokens_no_eot = tokenizer.encode(test_response_no_eot, add_special_tokens=False)
 
-    message, format_correct = renderer.parse_response(response_tokens_no_eot)
+    message, termination = renderer.parse_response(response_tokens_no_eot)
     assert message["role"] == "assistant"
     assert message["content"] == "53 + 18 = 71"
-    assert format_correct is False
+    assert not termination.is_clean
 
     # Test case 3: Double EOT token - should raise ValueError
     test_response_double_eot = f"53 + 18 = 71{eot_token}{eot_token}"
@@ -1179,7 +1179,7 @@ def test_eot_parsing(model_name: str, renderer_name: str):
 @pytest.mark.parametrize(
     "model_name,renderer_name",
     [
-        ("meta-llama/Llama-3.2-1B-Instruct", "llama3"),
+        ("meta-llama/Llama-3.1-8B-Instruct", "llama3"),
         ("Qwen/Qwen3-8B", "qwen3"),
         ("Qwen/Qwen3.5-35B-A3B", "qwen3_5"),
         ("Qwen/Qwen3.5-35B-A3B", "qwen3_5_disable_thinking"),
@@ -1297,9 +1297,9 @@ def _verify_extension_property(renderer, messages: list[Message], tokenizer):
 # If renderer_name_or_class is a string, use get_renderer; if a class, instantiate directly
 _EXTENSION_PROPERTY_TEST_PARAMS = [
     # Llama3 with basic multi-turn (tool calling not supported - see llama3.py docstring)
-    ("meta-llama/Llama-3.2-1B-Instruct", "llama3", {}, get_basic_4turn_conversation),
+    ("meta-llama/Llama-3.1-8B-Instruct", "llama3", {}, get_basic_4turn_conversation),
     # RoleColon with basic multi-turn (doesn't support tools)
-    ("meta-llama/Llama-3.2-1B-Instruct", "role_colon", {}, get_basic_4turn_conversation),
+    ("meta-llama/Llama-3.1-8B-Instruct", "role_colon", {}, get_basic_4turn_conversation),
     # Qwen3 Instruct with basic multi-turn
     ("Qwen/Qwen3-8B", "qwen3_instruct", {}, get_basic_4turn_conversation),
     # Qwen3 Instruct with tool calls

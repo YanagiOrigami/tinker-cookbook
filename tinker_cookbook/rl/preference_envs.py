@@ -226,10 +226,12 @@ class PairwisePreferenceGroupBuilder(EnvGroupBuilder):
             tuple[list[renderers.Message], bool]: A one-element message list
                 and a flag indicating whether the response had valid format.
         """
-        response, is_valid = self.policy_renderer.parse_response(
+        response, termination = self.policy_renderer.parse_response(
             trajectory.transitions[0].ac.tokens
         )
-        return [response], is_valid
+        # Preference RL's format-reward shaping mirrors ProblemEnv's strict
+        # default — only stop-sequence termination is "valid format".
+        return [response], termination.is_stop_sequence
 
     def comparison_reward_for_second_messages(
         self, message_i: list[renderers.Message], message_j: list[renderers.Message]
@@ -340,10 +342,10 @@ class PairwisePreferenceGroupBuilder(EnvGroupBuilder):
 
         return [
             (
-                win_minus_loss / matchup_count + format_coef * (float(is_valid) - 1.0),
-                {"win_minus_loss": win_minus_loss / matchup_count, "format": is_valid},
+                (win_minus_loss / mc if mc > 0 else 0.0) + format_coef * (float(is_valid) - 1.0),
+                {"win_minus_loss": win_minus_loss / mc if mc > 0 else 0.0, "format": is_valid},
             )
-            for win_minus_loss, is_valid, matchup_count in safezip(
+            for win_minus_loss, is_valid, mc in safezip(
                 win_minus_loss_list, is_valid_list, matchup_count
             )
         ]

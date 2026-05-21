@@ -17,7 +17,10 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from tinker_cookbook.stores.training_store import TrainingRunStore
 
 logger = logging.getLogger(__name__)
 
@@ -248,23 +251,22 @@ class IterationWindow:
             for s in spans
         ]
 
-    def write_spans_jsonl(self, path: Path | str, step: int) -> None:
-        """Append span records for this iteration as one JSON line to the given file.
+    def get_span_dicts(self) -> list[dict[str, Any]]:
+        """Return span records as JSON-serializable dicts.
 
-        Format: ``{"step": N, "spans": [{"name": ..., "duration": ..., "wall_start": ..., "wall_end": ...}, ...]}``
+        Wall times are normalized relative to the earliest span.
 
-        Args:
-            path (Path | str): File path to append to (created if missing).
-            step (int): Training step number to include in the record.
+        Returns:
+            List of dicts with keys: ``name``, ``duration``, ``wall_start``, ``wall_end``.
         """
         with self._lock:
             spans = list(self.spans)
 
         if not spans:
-            return
+            return []
 
         t0 = min(s.wall_start for s in spans)
-        span_dicts = [
+        return [
             {
                 "name": s.name,
                 "duration": s.end_time - s.start_time,
@@ -273,9 +275,36 @@ class IterationWindow:
             }
             for s in spans
         ]
+
+    def write_spans_jsonl(self, path: Path | str, step: int) -> None:
+        """Append span records for this iteration as one JSON line to the given file.
+
+        Format: ``{"step": N, "spans": [{"name": ..., "duration": ..., "wall_start": ..., "wall_end": ...}, ...]}``
+
+        .. deprecated::
+            Prefer ``store.write_timing_spans(step, window.get_span_dicts())``
+            which goes through the Storage protocol.
+
+        Args:
+            path (Path | str): File path to append to (created if missing).
+            step (int): Training step number to include in the record.
+        """
+        span_dicts = self.get_span_dicts()
+        if not span_dicts:
+            return
         line = json.dumps({"step": step, "spans": span_dicts})
         with open(path, "a") as f:
             f.write(line + "\n")
+
+    def save_timing(self, step: int, *, store: "TrainingRunStore | None") -> None:
+        """Write timing spans to ``timing_spans.jsonl`` via the store.
+
+        Args:
+            step: Training step number.
+            store: A ``TrainingRunStore``, or ``None`` to skip.
+        """
+        if store is not None:
+            store.write_timing_spans(step, self.get_span_dicts())
 
 
 # Context variable to track the current iteration window

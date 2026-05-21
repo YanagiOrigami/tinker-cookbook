@@ -122,6 +122,10 @@ def _get_hf_tokenizer(model_name: str) -> Tokenizer:
 
     model_name = model_name.split(":")[0]
 
+    # Local directory path — always trust custom tokenizer code bundled alongside.
+    if os.path.isdir(model_name):
+        return AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
     # Avoid gating of Llama 3 models:
     if model_name.startswith("meta-llama/Llama-3"):
         model_name = "thinkingmachineslabinc/meta-llama-3-instruct-tokenizer"
@@ -136,5 +140,26 @@ def _get_hf_tokenizer(model_name: str) -> Tokenizer:
     elif model_name == "moonshotai/Kimi-K2.5":
         kwargs["trust_remote_code"] = True
         kwargs["revision"] = "2426b45b6af0da48d0dcce71bbce6225e5c73adc"
+    elif model_name == "moonshotai/Kimi-K2.6":
+        kwargs["trust_remote_code"] = True
+        kwargs["revision"] = "b5aabbfb20227ed42becbf5541dbffd213942c58"
 
-    return AutoTokenizer.from_pretrained(model_name, use_fast=True, **kwargs)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, **kwargs)
+
+    # Kimi models require the custom TikTokenTokenizer which overrides apply_chat_template
+    # to format tool declarations as TypeScript. On some platforms (x86_64 + transformers
+    # >=5.5), AutoTokenizer resolves to TokenizersBackend instead. Bypass AutoTokenizer
+    # and directly load the custom class in that case.
+    if (
+        model_name.startswith("moonshotai/Kimi-K2")
+        and "apply_chat_template" not in type(tokenizer).__dict__
+    ):
+        from transformers.dynamic_module_utils import get_class_from_dynamic_module
+
+        revision = kwargs.get("revision")
+        cls = get_class_from_dynamic_module(
+            "tokenization_kimi.TikTokenTokenizer", model_name, revision=revision
+        )
+        tokenizer = cls.from_pretrained(model_name, revision=revision)
+
+    return tokenizer
